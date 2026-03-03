@@ -6,7 +6,6 @@ const app = express();
 
 // ============================================
 // RAW BODY CAPTURE for Razorpay webhook verification
-// Must come BEFORE express.json()
 // ============================================
 app.use((req, res, next) => {
   if (
@@ -17,11 +16,7 @@ app.use((req, res, next) => {
     req.on('data', (chunk) => { rawData += chunk; });
     req.on('end', () => {
       req.rawBody = rawData;
-      try {
-        req.body = JSON.parse(rawData);
-      } catch (e) {
-        req.body = {};
-      }
+      try { req.body = JSON.parse(rawData); } catch (e) { req.body = {}; }
       next();
     });
   } else {
@@ -29,9 +24,6 @@ app.use((req, res, next) => {
   }
 });
 
-// ============================================
-// MIDDLEWARE
-// ============================================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -54,31 +46,29 @@ app.use('/automations', require('./modules/automations/automations.routes'));
 // HEALTH CHECK
 // ============================================
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', platform: 'Biyo', version: '1.0.0' });
+  res.json({
+    status: 'ok',
+    platform: 'Biyo',
+    version: '1.0.0',
+    database: process.env.DATABASE_URL ? 'configured' : 'not configured',
+    razorpay: process.env.RAZORPAY_KEY_ID ? 'configured' : 'not configured',
+    openai: process.env.OPENAI_API_KEY ? 'configured' : 'not configured',
+  });
 });
 
-// ============================================
-// 404 HANDLER
-// ============================================
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found.' });
-});
-
-// ============================================
-// GLOBAL ERROR HANDLER
-// ============================================
+app.use((req, res) => res.status(404).json({ error: 'Route not found.' }));
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err.message);
   res.status(500).json({ error: 'Internal server error.' });
 });
 
-// ============================================
-// START SERVER
-// ============================================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Biyo backend running on port ${PORT}`);
   console.log(`📋 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🗄️  Database: ${process.env.DATABASE_URL ? '✅ configured' : '⚠️  not configured'}`);
+  console.log(`💳 Razorpay: ${process.env.RAZORPAY_KEY_ID ? '✅ configured' : '⚠️  not configured - payments disabled'}`);
+  console.log(`🤖 OpenAI: ${process.env.OPENAI_API_KEY ? '✅ configured' : '⚠️  not configured - AI disabled'}`);
 });
 
 module.exports = app;
